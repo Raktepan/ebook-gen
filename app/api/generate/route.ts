@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { generateChapter } from "../../../lib/prompt";
+import { generateChapter, generateTitleAndToc } from "../../../lib/prompt";
 
 export async function POST(req: Request) {
   const {
@@ -13,28 +13,36 @@ export async function POST(req: Request) {
   } = await req.json();
 
   const isThai = language === "th";
-  const title = isThai ? `หนังสือเกี่ยวกับ ${topic}` : `Ebook about ${topic}`;
   const tocHeader = isThai ? "สารบัญ" : "Table of Contents";
   const chapterLabel = isThai ? "บทที่" : "Chapter";
 
-  const toc: string[] = [];
+  const { title, toc } = await generateTitleAndToc({
+    topic,
+    language,
+    audience,
+    tone,
+    chapters,
+  });
+
   const content: string[] = [];
 
-  for (let i = 1; i <= chapters; i++) {
-    toc.push(`- ${chapterLabel} ${i}`);
+  for (let i = 0; i < chapters; i++) {
+    const chapterTitle = toc[i] || `${chapterLabel} ${i + 1}`;
     const chapter = await generateChapter({
       topic,
+      chapterTitle,
       language,
       audience,
       tone,
-      i,
+      i: i + 1,
       wordsPerChapter,
       includeExamples,
     });
-    content.push(`# ${chapterLabel} ${i}\n\n${chapter}`);
+    content.push(`# ${chapterLabel} ${i + 1}: ${chapterTitle}\n\n${chapter}`);
   }
 
-  const markdown = `# ${title}\n\n## ${tocHeader}\n${toc.join("\n")}\n\n${content.join("\n\n")}`;
+  const tocList = toc.map((t, idx) => `- ${chapterLabel} ${idx + 1}: ${t}`);
+  const markdown = `# ${title}\n\n## ${tocHeader}\n${tocList.join("\n")}\n\n${content.join("\n\n")}`;
 
   return NextResponse.json({ markdown });
 }
