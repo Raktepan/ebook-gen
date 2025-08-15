@@ -72,112 +72,141 @@ export default function Home() {
   };
 
   return (
-    <main className="p-4 space-y-4">
+    <main className="container mx-auto p-4 space-y-8">
       <h1 className="text-2xl font-bold">eBook Generator</h1>
-      <form onSubmit={handleGenerate} className="space-y-2 max-w-md">
-        <input
-          className="w-full border p-2"
-          placeholder="Topic"
-          name="topic"
-          value={form.topic}
-          onChange={handleChange}
-          required
-        />
-        <input
-          className="w-full border p-2"
-          placeholder="Audience"
-          name="audience"
-          value={form.audience}
-          onChange={handleChange}
-          required
-        />
-        <div className="flex gap-2">
-          <label className="flex flex-col text-sm">
-            Language
-            <select
-              name="language"
-              value={form.language}
-              onChange={handleChange}
-              className="border p-2"
-            >
-              <option value="en">English</option>
-              <option value="th">ไทย</option>
-            </select>
-          </label>
-          <label className="flex flex-col text-sm">
-            Tone
-            <select
-              name="tone"
-              value={form.tone}
-              onChange={handleChange}
-              className="border p-2"
-            >
-              <option value="friendly">Friendly</option>
-              <option value="professional">Professional</option>
-            </select>
-          </label>
-        </div>
-        <div className="flex gap-2">
-          <label className="flex flex-col text-sm">
-            Chapters
+      <div className="grid gap-8 lg:grid-cols-2">
+        <form onSubmit={handleGenerate} className="space-y-4">
+          <div>
+            <label htmlFor="topic" className="block text-sm font-medium mb-1">
+              Topic
+            </label>
             <input
-              type="number"
-              name="chapters"
-              min={5}
-              max={12}
-              value={form.chapters}
+              id="topic"
+              className="input"
+              placeholder="Topic"
+              name="topic"
+              value={form.topic}
               onChange={handleChange}
-              className="border p-2"
+              required
             />
-          </label>
-          <label className="flex flex-col text-sm">
-            Words/Chapter
+          </div>
+          <div>
+            <label htmlFor="audience" className="block text-sm font-medium mb-1">
+              Audience
+            </label>
             <input
-              type="number"
-              name="wordsPerChapter"
-              min={400}
-              max={800}
-              value={form.wordsPerChapter}
+              id="audience"
+              className="input"
+              placeholder="Audience"
+              name="audience"
+              value={form.audience}
               onChange={handleChange}
-              className="border p-2"
+              required
             />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="language" className="block text-sm font-medium mb-1">
+                Language
+              </label>
+              <select
+                id="language"
+                name="language"
+                value={form.language}
+                onChange={handleChange}
+                className="input"
+              >
+                <option value="en">English</option>
+                <option value="th">ไทย</option>
+              </select>
+            </div>
+            <div>
+              <label htmlFor="tone" className="block text-sm font-medium mb-1">
+                Tone
+              </label>
+              <select
+                id="tone"
+                name="tone"
+                value={form.tone}
+                onChange={handleChange}
+                className="input"
+              >
+                <option value="friendly">Friendly</option>
+                <option value="professional">Professional</option>
+              </select>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label
+                htmlFor="chapters"
+                className="block text-sm font-medium mb-1"
+              >
+                Chapters
+              </label>
+              <input
+                type="number"
+                id="chapters"
+                name="chapters"
+                min={5}
+                max={12}
+                value={form.chapters}
+                onChange={handleChange}
+                className="input"
+              />
+            </div>
+            <div>
+              <label
+                htmlFor="wordsPerChapter"
+                className="block text-sm font-medium mb-1"
+              >
+                Words/Chapter
+              </label>
+              <input
+                type="number"
+                id="wordsPerChapter"
+                name="wordsPerChapter"
+                min={400}
+                max={800}
+                value={form.wordsPerChapter}
+                onChange={handleChange}
+                className="input"
+              />
+            </div>
+          </div>
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              name="includeExamples"
+              checked={form.includeExamples}
+              onChange={handleChange}
+            />
+            Include examples
           </label>
-        </div>
-        <label className="flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            name="includeExamples"
-            checked={form.includeExamples}
-            onChange={handleChange}
-          />
-          Include examples
-        </label>
-        <button
-          type="submit"
-          className="px-4 py-2 bg-blue-600 text-white rounded"
-          disabled={loading}
-        >
-          Generate
-        </button>
-      </form>
+          <button type="submit" className="btn" disabled={loading}>
+            Generate
+          </button>
+        </form>
+        <div>
+          {loading && <p>Generating...</p>}
 
-      {loading && <p>Generating...</p>}
-
-      {markdown && !loading && (
-        <div className="space-y-4">
-          <div className="flex gap-2">
-            <button onClick={downloadMd} className="px-3 py-1 bg-gray-200 rounded">
-              Download .md
-            </button>
-            <button onClick={downloadDocx} className="px-3 py-1 bg-gray-200 rounded">
-              Download .docx
-            </button>
-          </div>
-          <div className="prose max-w-none">
-            <ReactMarkdown>{markdown}</ReactMarkdown>
-          </div>
+          {markdown && !loading && (
+            <div className="space-y-4">
+              <div className="flex flex-wrap gap-2">
+                <button onClick={downloadMd} className="btn-secondary">
+                  Download .md
+                </button>
+                <button onClick={downloadDocx} className="btn-secondary">
+                  Download .docx
+                </button>
+              </div>
+              <article className="prose max-w-none lg:prose-lg">
+                <ReactMarkdown>{markdown}</ReactMarkdown>
+              </article>
+            </div>
+          )}
         </div>
-      )}
+      </div>
     </main>
   );
 }
