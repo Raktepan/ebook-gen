@@ -40,6 +40,7 @@ Topic: "${topic}".
 Audience: ${audience}.
 Tone: ${toneLabel}.
 Provide ${chapters} specific chapter titles covering distinct aspects of the topic.
+Avoid generic names like "Introduction", "Conclusion", or "Overview".
 Return JSON: {"title": string, "toc": string[]}.`;
 
   if (process.env.OPENAI_API_KEY) {
@@ -99,15 +100,14 @@ export async function generateChapter({
 }: GenerateChapterParams): Promise<string> {
   const langLabel = language === "th" ? "Thai" : "English";
   const toneLabel = getToneLabel(language, tone);
-  const prompt = `Write chapter ${i} titled "${chapterTitle}" for an ebook about "${topic}" in ${langLabel}.
-Audience: ${audience}.
-Tone: ${toneLabel}.
-Length: about ${wordsPerChapter} words (±15%).
-Avoid generic phrases like "in this chapter we will".
-Structure:
-- Intro: 2-3 lines.
-- 3-5 bullet points with detailed steps, numbers, or insights.
-${includeExamples ? "- Include a real-world example or case study.\n" : ""}- Summary: 3-5 lines followed by a checklist of key points.`;
+  const prompt = `You are writing chapter ${i} titled "${chapterTitle}" for an ebook about "${topic}".
+Language: ${langLabel}. Audience: ${audience}. Tone: ${toneLabel}.
+Target length: about ${wordsPerChapter} words (±15%).
+Requirements:
+- Start with a 2-3 sentence introduction.
+- Provide 3-5 subsections. Each subsection must have a descriptive heading and 2-4 numbered steps or bullet points with concrete numbers, metrics, or examples (avoid generic labels like "ข้อ 1" or "Section 1").
+${includeExamples ? "- Include one clearly labeled example or case study with real numbers and context.\n" : ""}- End with a 3-5 sentence summary and a practical checklist (markdown list).
+Write the chapter in Markdown.`;
 
   if (process.env.OPENAI_API_KEY) {
     const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -121,22 +121,44 @@ ${includeExamples ? "- Include a real-world example or case study.\n" : ""}- Sum
 
   const isThai = language === "th";
   const intro = isThai
-    ? `${chapterTitle} มีบทบาทสำคัญต่อกลุ่ม ${audience}\nการเข้าใจหัวข้อนี้ช่วยพัฒนาการทำงานได้ดีขึ้น`
-    : `${chapterTitle} is crucial for ${audience}\nUnderstanding this topic improves practical work`;
-  const bullets = isThai
-    ? `- ขั้นตอนหลักของ ${chapterTitle}\n- เทคนิคที่ควรรู้\n- ตัวเลขที่ต้องติดตาม`
-    : `- Key steps of ${chapterTitle}\n- Useful techniques\n- Metrics to monitor`;
+    ? `${chapterTitle} มีบทบาทสำคัญต่อกลุ่ม ${audience}. การเข้าใจหัวข้อนี้ช่วยพัฒนาการทำงานได้ดีขึ้น.`
+    : `${chapterTitle} is crucial for ${audience}. Understanding this topic improves practical work.`;
+
+  const subsections = isThai
+    ? [
+        `### ประเด็นสำคัญ\n1. ขั้นตอนแรกที่ควรทำ\n2. ตัวเลขที่ต้องติดตาม`,
+        `### เทคนิคการปรับใช้\n1. ทดลองกับตัวอย่างจริง\n2. วัดผลทุกสัปดาห์`,
+        `### ปัญหาที่พบบ่อย\n1. สาเหตุหลัก\n2. วิธีแก้ไขพร้อมตัวเลข`,
+      ]
+    : [
+        `### Key Points\n1. First step to take\n2. Metrics to monitor`,
+        `### Implementation Tips\n1. Try with a real scenario\n2. Measure weekly results`,
+        `### Common Pitfalls\n1. Main causes\n2. Fixes with numbers`,
+      ];
+
   const example = includeExamples
     ? isThai
-      ? `\n\n**กรณีศึกษา:** การใช้ ${chapterTitle} ในบริษัทตัวอย่าง`
-      : `\n\n**Case Study:** Using ${chapterTitle} in a sample company`
+      ? `\n### ตัวอย่างจริง\nบริษัทตัวอย่างเพิ่มยอดขาย 15% ภายใน 3 เดือนด้วยการใช้ ${chapterTitle}`
+      : `\n### Real Example\nA sample company increased revenue by 15% in 3 months using ${chapterTitle}`
     : "";
-  const summaryText = isThai
-    ? `สรุปใจความของ ${chapterTitle}\nลองปฏิบัติตามเพื่อเห็นผลจริง\nประเมินและปรับปรุงสม่ำเสมอ`
-    : `Key points of ${chapterTitle}\nApply the steps to see results\nReview and refine regularly`;
+
+  const summaryLines = isThai
+    ? [
+        `สรุปใจความของ ${chapterTitle}`,
+        "ลองปฏิบัติตามเพื่อเห็นผลจริง",
+        "ประเมินและปรับปรุงสม่ำเสมอ",
+      ]
+    : [
+        `Key points of ${chapterTitle}`,
+        "Apply the steps to see results",
+        "Review and refine regularly",
+      ];
+
   const checklistItems = isThai
-    ? ["ทำความเข้าใจ", "ลงมือทำ", "วัดผล"]
-    : ["Understand", "Act", "Measure"];
+    ? ["ทำตามขั้นตอน", "วัดผลตัวเลข", "ปรับปรุงต่อเนื่อง"]
+    : ["Follow steps", "Track metrics", "Iterate"];
+
   const checklist = checklistItems.map((c) => `- [ ] ${c}`).join("\n");
-  return `${intro}\n\n${bullets}${example}\n\n${isThai ? "สรุป:" : "Summary:"}\n${summaryText}\n\n${isThai ? "Checklist:" : "Checklist:"}\n${checklist}`;
+
+  return `${intro}\n\n${subsections.join("\n\n")}${example}\n\n${isThai ? "สรุป:" : "Summary:"}\n${summaryLines.join("\n")}\n\n${isThai ? "Checklist:" : "Checklist:"}\n${checklist}`;
 }

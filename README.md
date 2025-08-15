@@ -2,6 +2,10 @@
 
 A minimal eBook generator built with Next.js. Users can fill out a form, generate eBook chapters with OpenAI (or mock text if no API key), preview the Markdown, and download the result as `.md` or `.docx`.
 
+### Prompt V2
+
+Generation now uses a two-pass flow: first a specific title and table of contents are created, then each chapter is written following that outline with actionable subsections, optional real examples, and a summary checklist.
+
 ## Getting Started
 
 ```bash

@@ -24,7 +24,7 @@ export async function POST(req: Request) {
     chapters,
   });
 
-  const content: string[] = [];
+  const chaptersContent: string[] = [];
 
   for (let i = 0; i < chapters; i++) {
     const chapterTitle = toc[i] || `${chapterLabel} ${i + 1}`;
@@ -38,11 +38,11 @@ export async function POST(req: Request) {
       wordsPerChapter,
       includeExamples,
     });
-    content.push(`# ${chapterLabel} ${i + 1}: ${chapterTitle}\n\n${chapter}`);
+    chaptersContent.push(`# ${chapterLabel} ${i + 1}: ${chapterTitle}\n\n${chapter}`);
   }
 
   const tocList = toc.map((t, idx) => `- ${chapterLabel} ${idx + 1}: ${t}`);
-  const markdown = `# ${title}\n\n## ${tocHeader}\n${tocList.join("\n")}\n\n${content.join("\n\n")}`;
+  const markdown = `# ${title}\n\n## ${tocHeader}\n${tocList.join("\n")}\n\n${chaptersContent.join("\n\n")}`;
 
-  return NextResponse.json({ markdown });
+  return NextResponse.json({ title, toc, markdown });
 }
