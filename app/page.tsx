@@ -9,6 +9,7 @@ export default function Home() {
     language: "en",
     audience: "",
     tone: "friendly",
+    style: "howto",
     chapters: 5,
     wordsPerChapter: 400,
     includeExamples: false,
@@ -138,6 +139,24 @@ export default function Home() {
                 <option value="professional">Professional</option>
               </select>
             </div>
+          </div>
+          <div>
+            <label htmlFor="style" className="block text-sm font-medium mb-1">
+              Style
+            </label>
+            <select
+              id="style"
+              name="style"
+              value={form.style}
+              onChange={handleChange}
+              className="input"
+            >
+              <option value="howto">howto</option>
+              <option value="explainer">explainer</option>
+              <option value="course">course</option>
+              <option value="playbook">playbook</option>
+              <option value="storylite">storylite</option>
+            </select>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
