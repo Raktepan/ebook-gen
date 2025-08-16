@@ -24,24 +24,28 @@ export async function POST(req: Request) {
     chapters,
   });
 
-  const chaptersContent: string[] = [];
+  const tocArray = Array.from({ length: chapters }, (_, idx) =>
+    toc[idx] || `${chapterLabel} ${idx + 1}`
+  );
 
-  for (let i = 0; i < chapters; i++) {
-    const chapterTitle = toc[i] || `${chapterLabel} ${i + 1}`;
-    const chapter = await generateChapter({
-      topic,
-      chapterTitle,
-      language,
-      audience,
-      tone,
-      i: i + 1,
-      wordsPerChapter,
-      includeExamples,
-    });
-    chaptersContent.push(`# ${chapterLabel} ${i + 1}: ${chapterTitle}\n\n${chapter}`);
-  }
+  const chaptersContent = await Promise.all(
+    tocArray.map((chapterTitle, idx) =>
+      generateChapter({
+        topic,
+        chapterTitle,
+        language,
+        audience,
+        tone,
+        i: idx + 1,
+        wordsPerChapter,
+        includeExamples,
+      }).then(
+        (chapter) => `# ${chapterLabel} ${idx + 1}: ${chapterTitle}\n\n${chapter}`
+      )
+    )
+  );
 
-  const tocList = toc.map((t, idx) => `- ${chapterLabel} ${idx + 1}: ${t}`);
+  const tocList = tocArray.map((t, idx) => `- ${chapterLabel} ${idx + 1}: ${t}`);
   const markdown = `# ${title}\n\n## ${tocHeader}\n${tocList.join("\n")}\n\n${chaptersContent.join("\n\n")}`;
 
   return NextResponse.json({ title, toc, markdown });

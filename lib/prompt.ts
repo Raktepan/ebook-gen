@@ -40,7 +40,7 @@ Topic: "${topic}".
 Audience: ${audience}.
 Tone: ${toneLabel}.
 Provide ${chapters} specific chapter titles covering distinct aspects of the topic.
-Avoid generic names like "Introduction", "Conclusion", or "Overview".
+Avoid generic names like "Introduction", "Conclusion", "Overview", "พื้นฐาน", "กรณีศึกษา", "แนวโน้ม", or "สรุป".
 Return JSON: {"title": string, "toc": string[]}.`;
 
   if (process.env.OPENAI_API_KEY) {
@@ -66,24 +66,24 @@ Return JSON: {"title": string, "toc": string[]}.`;
   }
 
   const isThai = language === "th";
-  const title = isThai ? `คู่มือ${topic}` : `${topic} Handbook`;
+  const title = isThai ? `คู่มือเกี่ยวกับ ${topic}` : `${topic} Guide`;
   const templatesTh = [
-    `พื้นฐานของ ${topic}`,
-    `การนำ ${topic} ไปใช้จริง`,
-    `กรณีศึกษาเกี่ยวกับ ${topic}`,
-    `ปัญหาและทางออกของ ${topic}`,
-    `แนวโน้มอนาคตของ ${topic}`,
+    `${topic} ในสถานการณ์จริง`,
+    `กลยุทธ์ขั้นสูงของ ${topic}`,
+    `แก้ปัญหาเฉพาะหน้าด้วย ${topic}`,
+    `ปรับใช้ ${topic} ให้ได้ผล`,
+    `ตรวจสอบผลลัพธ์ของ ${topic}`,
   ];
   const templatesEn = [
-    `Fundamentals of ${topic}`,
-    `Practical Uses of ${topic}`,
-    `Case Study of ${topic}`,
-    `Challenges and Solutions in ${topic}`,
-    `Future Trends of ${topic}`,
+    `${topic} in Practice`,
+    `Advanced Strategies for ${topic}`,
+    `Solving Issues with ${topic}`,
+    `Applying ${topic} Effectively`,
+    `Evaluating ${topic} Outcomes`,
   ];
   const base = isThai ? templatesTh : templatesEn;
   const toc = Array.from({ length: chapters }, (_, idx) =>
-    base[idx] || (isThai ? `${topic} แง่มุมที่ ${idx + 1}` : `${topic} Aspect ${idx + 1}`)
+    base[idx] || (isThai ? `${topic} หัวข้อที่ ${idx + 1}` : `${topic} Topic ${idx + 1}`)
   );
   return { title, toc };
 }
@@ -100,13 +100,19 @@ export async function generateChapter({
 }: GenerateChapterParams): Promise<string> {
   const langLabel = language === "th" ? "Thai" : "English";
   const toneLabel = getToneLabel(language, tone);
+  const banned =
+    language === "th"
+      ? "ประเด็นสำคัญ, ขั้นตอนแรกที่ควรทำ, ตัวเลขที่ต้องติดตาม, เทคนิคการปรับใช้, สรุปใจความของ, ในบทนี้เราจะ, ลองปฏิบัติตาม"
+      : "key points, first step to take, metrics to monitor, implementation tips, summary of, in this chapter we will, try the following";
   const prompt = `You are writing chapter ${i} titled "${chapterTitle}" for an ebook about "${topic}".
 Language: ${langLabel}. Audience: ${audience}. Tone: ${toneLabel}.
 Target length: about ${wordsPerChapter} words (±15%).
-Requirements:
-- Start with a 2-3 sentence introduction.
-- Provide 3-5 subsections. Each subsection must have a descriptive heading and 2-4 numbered steps or bullet points with concrete numbers, metrics, or examples (avoid generic labels like "ข้อ 1" or "Section 1").
-${includeExamples ? "- Include one clearly labeled example or case study with real numbers and context.\n" : ""}- End with a 3-5 sentence summary and a practical checklist (markdown list).
+Do not repeat the raw topic unnecessarily. Never use these phrases: ${banned}.
+Structure:
+1. A concise 2-3 sentence introduction.
+2. 3-5 actionable subsections, each with a heading and 2-4 numbered steps using concrete numbers, time spans, or percentages.
+${includeExamples ? "3. One realistic example or case study with real numbers.\n" : ""}4. A 3-5 line summary.
+5. A practical checklist in markdown.
 Write the chapter in Markdown.`;
 
   if (process.env.OPENAI_API_KEY) {
@@ -121,42 +127,42 @@ Write the chapter in Markdown.`;
 
   const isThai = language === "th";
   const intro = isThai
-    ? `${chapterTitle} มีบทบาทสำคัญต่อกลุ่ม ${audience}. การเข้าใจหัวข้อนี้ช่วยพัฒนาการทำงานได้ดีขึ้น.`
-    : `${chapterTitle} is crucial for ${audience}. Understanding this topic improves practical work.`;
+    ? `${chapterTitle} มีความสำคัญต่อผู้สนใจ ${audience} และช่วยพัฒนาผลลัพธ์ได้จริง. เนื้อหานี้สรุปวิธีทำงานให้เกิดผลภายในเวลาไม่นาน.`
+    : `${chapterTitle} matters to ${audience} and can drive measurable results. This section outlines practical steps without fluff.`;
 
   const subsections = isThai
     ? [
-        `### ประเด็นสำคัญ\n1. ขั้นตอนแรกที่ควรทำ\n2. ตัวเลขที่ต้องติดตาม`,
-        `### เทคนิคการปรับใช้\n1. ทดลองกับตัวอย่างจริง\n2. วัดผลทุกสัปดาห์`,
-        `### ปัญหาที่พบบ่อย\n1. สาเหตุหลัก\n2. วิธีแก้ไขพร้อมตัวเลข`,
+        `### ตั้งเป้าหมาย\n1. ระบุเป้าหมายรายเดือน 3 ข้อ\n2. จัดตารางทำงานวันละ 15 นาที`,
+        `### ลงมือปฏิบัติ\n1. เตรียมอุปกรณ์หลัก 2 ชนิด\n2. ทำซ้ำอย่างน้อย 10 รอบต่อสัปดาห์`,
+        `### ประเมินผล\n1. บันทึกตัวเลขทุก 7 วัน\n2. ปรับขั้นตอนเมื่อผลลัพธ์ต่ำกว่า 80% ของเป้าหมาย`,
       ]
     : [
-        `### Key Points\n1. First step to take\n2. Metrics to monitor`,
-        `### Implementation Tips\n1. Try with a real scenario\n2. Measure weekly results`,
-        `### Common Pitfalls\n1. Main causes\n2. Fixes with numbers`,
+        `### Set Goals\n1. List 3 monthly targets\n2. Schedule 15 minutes daily`,
+        `### Execute\n1. Prepare 2 essential tools\n2. Repeat at least 10 times each week`,
+        `### Review\n1. Record metrics every 7 days\n2. Adjust if results drop below 80% of target`,
       ];
 
   const example = includeExamples
     ? isThai
-      ? `\n### ตัวอย่างจริง\nบริษัทตัวอย่างเพิ่มยอดขาย 15% ภายใน 3 เดือนด้วยการใช้ ${chapterTitle}`
-      : `\n### Real Example\nA sample company increased revenue by 15% in 3 months using ${chapterTitle}`
+      ? `\n### กรณีตัวอย่าง\nเจ้าของกิจการรายหนึ่งเพิ่มยอดขาย 20% ภายใน 6 เดือนหลังทำตามขั้นตอนเหล่านี้`
+      : `\n### Case Example\nA small business owner grew revenue by 20% in 6 months after following these steps`
     : "";
 
   const summaryLines = isThai
     ? [
-        `สรุปใจความของ ${chapterTitle}`,
-        "ลองปฏิบัติตามเพื่อเห็นผลจริง",
-        "ประเมินและปรับปรุงสม่ำเสมอ",
+        `${chapterTitle} ช่วยให้เห็นผลได้เมื่อทำตามตัวเลข`,
+        "ติดตามผลทุกสัปดาห์และปรับปรุงทันที",
+        "เตรียมแผนสำรองในกรณีที่ผลไม่ถึงเป้า",
       ]
     : [
-        `Key points of ${chapterTitle}`,
-        "Apply the steps to see results",
-        "Review and refine regularly",
+        `${chapterTitle} delivers results when numbers are tracked`,
+        "Monitor progress weekly and iterate fast",
+        "Keep a backup plan if targets are missed",
       ];
 
   const checklistItems = isThai
-    ? ["ทำตามขั้นตอน", "วัดผลตัวเลข", "ปรับปรุงต่อเนื่อง"]
-    : ["Follow steps", "Track metrics", "Iterate"];
+    ? ["กำหนดเป้าหมาย", "จดตัวเลขทุกสัปดาห์", "ปรับขั้นตอนให้เหมาะสม"]
+    : ["set goals", "log numbers weekly", "adjust steps as needed"];
 
   const checklist = checklistItems.map((c) => `- [ ] ${c}`).join("\n");
 
