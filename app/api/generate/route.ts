@@ -7,6 +7,7 @@ export async function POST(req: Request) {
     language,
     audience,
     tone,
+    style,
     chapters,
     wordsPerChapter,
     includeExamples,
@@ -21,6 +22,7 @@ export async function POST(req: Request) {
     language,
     audience,
     tone,
+    style,
     chapters,
   });
 
@@ -37,6 +39,7 @@ export async function POST(req: Request) {
       language,
       audience,
       tone,
+      style,
       i: idx + 1,
       wordsPerChapter,
       includeExamples,
