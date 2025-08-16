@@ -17,6 +17,29 @@ function cleanMarkdown(text: string) {
   return cleaned.trim();
 }
 
+function stripOrphanMarkdownLines(s: string) {
+  return s.replace(/^\s*markdown\s*$/gmi, '').trim();
+}
+
+function stripRepeatedTitle(s: string, chapterTitle: string) {
+  const pat = new RegExp(`^\\s*${chapterTitle}\\s*$`, 'mi');
+  return s.replace(pat, '').trim();
+}
+
+function enforceTaskList(md: string) {
+  return md.replace(/(#+\s*Checklist[^\n]*\n)([\s\S]*?)(\n#+|\n*$)/g, (_m, head, body, tail) => {
+    const fixed = body
+      .split('\n')
+      .map(line => {
+        const t = line.trim();
+        if (!t) return '';
+        return /^-\s\[\s\]/.test(t) ? line : `- [ ] ${t.replace(/^[-*\\d\.\)]\s*/, '')}`;
+      })
+      .join('\n');
+    return `${head}${fixed}\n${tail}`;
+  });
+}
+
 export async function POST(req: Request) {
   const body = await req.json();
   const {
@@ -126,15 +149,20 @@ export async function POST(req: Request) {
       includeExamples,
       style,
     });
-    let chapter = await run(chapterPrompt);
-    let cleaned = cleanMarkdown(chapter);
-    if (hasBanned(cleaned)) {
+    let mdRaw = await run(chapterPrompt);
+    let md = stripOrphanMarkdownLines(mdRaw);
+    md = stripRepeatedTitle(md, chapterTitle);
+    md = cleanMarkdown(md);
+    if (hasBanned(md)) {
       const strictPrompt = `${chapterPrompt}\nห้ามใช้คำโครงสร้าง เช่น 'หัวข้อที่ 1/2/3', 'หัวข้อย่อย 1', 'ขั้นตอนหนึ่ง/สอง'. เขียนหัวข้อจริงตามคำอธิบายเดิม`;
-      chapter = await run(strictPrompt);
-      cleaned = cleanMarkdown(chapter);
+      mdRaw = await run(strictPrompt);
+      md = stripOrphanMarkdownLines(mdRaw);
+      md = stripRepeatedTitle(md, chapterTitle);
+      md = cleanMarkdown(md);
     }
+    md = enforceTaskList(md);
     chaptersContent.push(
-      `# ${chapterLabel} ${idx + 1}: ${chapterTitle}\n\n${cleaned}`
+      `# ${chapterLabel} ${idx + 1}: ${chapterTitle}\n\n${md}`
     );
   }
 
