@@ -1,15 +1,13 @@
-import OpenAI from "openai";
-
 const BAN_LIST = [
   "หัวข้อที่ 1",
   "หัวข้อที่ 2",
+  "หัวข้อที่ 3",
   "หัวข้อย่อย 1",
   "ขั้นตอนหนึ่ง",
   "ขั้นตอนสอง",
   "ประเด็นสำคัญ",
   "สรุปใจความของ",
   "ในบทนี้เราจะ",
-  "กรณีศึกษา: ตัวอย่างประกอบ",
 ];
 
 function hasBanned(text: string) {
@@ -26,7 +24,7 @@ export type Style =
 
 export const recipeMap: Record<Style, string> = {
   howto:
-    "subsections as step-by-step instructions with numbers/timers/frequencies; chapter titles start with an action verb and include a numeric anchor",
+    "subsections as step-by-step instructions using action verbs and numbers or timers; chapter titles start with an action verb and include a numeric anchor",
   explainer:
     "subsections covering definitions, comparisons, misconceptions, and mini-quizzes",
   course:
@@ -37,7 +35,7 @@ export const recipeMap: Record<Style, string> = {
     "subsections following a narrative arc: setup, conflict, turning point, resolution, lesson",
 };
 
-export interface GenerateTitleAndTocParams {
+export interface GetTOCPromptParams {
   topic: string;
   language: "th" | "en";
   audience: string;
@@ -46,7 +44,7 @@ export interface GenerateTitleAndTocParams {
   style: Style;
 }
 
-export interface GenerateChapterParams {
+export interface WriteChapterParams {
   topic: string;
   chapterTitle: string;
   language: "th" | "en";
@@ -58,26 +56,29 @@ export interface GenerateChapterParams {
   style: Style;
 }
 
-function getToneLabel(language: "th" | "en", tone: "friendly" | "professional") {
+function getToneLabel(
+  language: "th" | "en",
+  tone: "friendly" | "professional"
+) {
   if (tone === "friendly") {
     return language === "th" ? "เป็นกันเอง" : "friendly";
   }
   return language === "th" ? "เป็นทางการ" : "professional";
 }
 
-export async function generateTitleAndToc({
+export function getTOCPrompt({
   topic,
   language,
   audience,
   tone,
   chapters,
   style,
-}: GenerateTitleAndTocParams): Promise<{ title: string; toc: string[] }> {
+}: GetTOCPromptParams): string {
   const langLabel = language === "th" ? "Thai" : "English";
   const toneLabel = getToneLabel(language, tone);
   const recipe = recipeMap[style];
   const bannedStr = BAN_LIST.map((b) => `"${b}"`).join(", ");
-  const basePrompt = `You plan an ebook outline in ${langLabel}.
+  return `You plan an ebook outline in ${langLabel}.
 Global rules:
 - Ban these exact phrases (case-insensitive): ${bannedStr}.
 - Avoid repeating the raw topic.
@@ -88,56 +89,10 @@ Style: ${style} (${recipe}).
 Generate a specific title and table of contents with ${chapters} chapters.
 Avoid generic or placeholder titles like "พื้นฐาน", "แนวโน้ม", "กรณีศึกษา", "สรุป", or "หัวข้อที่...".
 ${style === "howto" ? "Each chapter title must start with an action verb and include a number or timer." : ""}
-Return JSON: {"title": string, "toc": string[]}.`;
-
-  async function run(p: string) {
-    const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
-    const res = await client.chat.completions.create({
-      model: "gpt-4o-mini",
-      temperature: 0.4,
-      messages: [{ role: "user", content: p }],
-    });
-    return res.choices[0].message?.content?.trim() ?? "";
-  }
-
-  function parse(text: string) {
-    try {
-      const json = JSON.parse(text);
-      const toc: string[] = Array.isArray(json.toc)
-        ? json.toc.slice(0, chapters).map((t: string) => t.trim())
-        : [];
-      return { title: String(json.title ?? topic), toc };
-    } catch {
-      const lines = text.split("\n");
-      const title = lines[0] || topic;
-      const toc = lines
-        .slice(1, chapters + 1)
-        .map((l) => l.replace(/^[-*]\s*/, "").trim());
-      return { title, toc };
-    }
-  }
-
-  if (process.env.OPENAI_API_KEY) {
-    let text = await run(basePrompt);
-    let { title, toc } = parse(text);
-    if (hasBanned(title) || toc.some(hasBanned)) {
-      const strictPrompt = `${basePrompt}\nห้ามใช้คำโครงสร้าง เช่น 'หัวข้อที่ 1/2', 'หัวข้อย่อย 1', 'ขั้นตอนหนึ่ง/สอง'. เขียนหัวข้อและขั้นตอนจริงตามคำอธิบายเดิม`;
-      text = await run(strictPrompt);
-      ({ title, toc } = parse(text));
-    }
-    return { title, toc };
-  }
-  const isThai = language === "th";
-  const title = topic;
-  const toc = Array.from({ length: chapters }, (_, idx) =>
-    isThai
-      ? `ลงมือทำภารกิจ ${idx + 1} ภายใน 10 นาที`
-      : `Complete task ${idx + 1} in 10 minutes`
-  );
-  return { title, toc };
+Return only valid JSON: {"title": string, "toc": string[]}.`;
 }
 
-export async function generateChapter({
+export function writeChapterPrompt({
   topic,
   chapterTitle,
   language,
@@ -147,12 +102,12 @@ export async function generateChapter({
   wordsPerChapter,
   includeExamples,
   style,
-}: GenerateChapterParams): Promise<string> {
+}: WriteChapterParams): string {
   const langLabel = language === "th" ? "Thai" : "English";
   const toneLabel = getToneLabel(language, tone);
   const recipe = recipeMap[style];
   const bannedStr = BAN_LIST.join(", ");
-  const basePrompt = `Write chapter ${i} titled "${chapterTitle}" for an ebook on "${topic}".
+  return `Write chapter ${i} titled "${chapterTitle}" for an ebook on "${topic}".
 Language: ${langLabel}. Audience: ${audience}. Tone: ${toneLabel}. Style: ${style} (${recipe}).
 Global rules:
 - Ban these exact phrases (case-insensitive): ${bannedStr}.
@@ -163,45 +118,7 @@ Structure:
 2) 3–5 actionable subsections with concrete numbers, timers, steps or frequencies.
 ${includeExamples ? "3) One realistic example matching the domain.\n4) 3–5 line summary.\n5) Practical checklist in Markdown." : "3) 3–5 line summary.\n4) Practical checklist in Markdown."}
 Write the chapter in Markdown.`;
-
-  async function run(p: string) {
-    const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
-    const res = await client.chat.completions.create({
-      model: "gpt-4o-mini",
-      temperature: 0.4,
-      messages: [{ role: "user", content: p }],
-    });
-    return res.choices[0].message?.content?.trim() ?? "";
-  }
-
-  if (process.env.OPENAI_API_KEY) {
-    let text = await run(basePrompt);
-    if (hasBanned(text)) {
-      const strictPrompt = `${basePrompt}\nห้ามใช้คำโครงสร้าง เช่น 'หัวข้อที่ 1/2', 'หัวข้อย่อย 1', 'ขั้นตอนหนึ่ง/สอง'. เขียนหัวข้อและขั้นตอนจริงตามคำอธิบายเดิม`;
-      text = await run(strictPrompt);
-    }
-    return text;
-  }
-
-  const isThai = language === "th";
-  const intro = isThai
-    ? `${chapterTitle} บทนำ 2–3 ประโยคแบบกระชับ`
-    : `${chapterTitle} concise 2–3 sentence introduction`;
-  const subsections = Array.from({ length: 3 }, (_, idx) =>
-    isThai
-      ? `### ขั้นที่ ${idx + 1}\n- ทำงานให้เสร็จใน 15 นาที`
-      : `### Step ${idx + 1}\n- Finish in 15 minutes`
-  );
-  const example = includeExamples
-    ? isThai
-      ? `\n### ตัวอย่างจริง\nอธิบายสถานการณ์ที่เกิดขึ้น`
-      : `\n### Example\nDescribe a realistic scenario`
-    : "";
-  const summary = isThai
-    ? `\n\nสรุป:\n- ประเด็นนำไปใช้ได้ทันที\n- เน้นตัวเลขหรือเวลา`
-    : `\n\nSummary:\n- Immediate takeaway\n- Include numbers or time`;
-  const checklist = isThai
-    ? `\n\nChecklist:\n- [ ] ลงมือทำภายใน 10 นาที\n- [ ] ตรวจสอบผลทุกสัปดาห์`
-    : `\n\nChecklist:\n- [ ] Act within 10 minutes\n- [ ] Review weekly`;
-  return `${intro}\n\n${subsections.join("\n\n")}${example}${summary}${checklist}`;
 }
+
+export { BAN_LIST, hasBanned };
+
