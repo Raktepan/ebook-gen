@@ -1,5 +1,22 @@
 import OpenAI from "openai";
 
+const BAN_LIST = [
+  "หัวข้อที่ 1",
+  "หัวข้อที่ 2",
+  "หัวข้อย่อย 1",
+  "ขั้นตอนหนึ่ง",
+  "ขั้นตอนสอง",
+  "ประเด็นสำคัญ",
+  "สรุปใจความของ",
+  "ในบทนี้เราจะ",
+  "กรณีศึกษา: ตัวอย่างประกอบ",
+];
+
+function hasBanned(text: string) {
+  const lower = text.toLowerCase();
+  return BAN_LIST.some((b) => lower.includes(b.toLowerCase()));
+}
+
 export type Style =
   | "howto"
   | "explainer"
@@ -9,7 +26,7 @@ export type Style =
 
 export const recipeMap: Record<Style, string> = {
   howto:
-    "subsections as step-by-step instructions with numbers/timers/frequencies",
+    "subsections as step-by-step instructions with numbers/timers/frequencies; chapter titles start with an action verb and include a numeric anchor",
   explainer:
     "subsections covering definitions, comparisons, misconceptions, and mini-quizzes",
   course:
@@ -59,27 +76,31 @@ export async function generateTitleAndToc({
   const langLabel = language === "th" ? "Thai" : "English";
   const toneLabel = getToneLabel(language, tone);
   const recipe = recipeMap[style];
-  const banned = '"ประเด็นสำคัญ", "ขั้นตอนแรกที่ควรทำ", "สรุปใจความของ", "ในบทนี้เราจะ"';
-  const prompt = `You plan an ebook outline in ${langLabel}.
+  const bannedStr = BAN_LIST.map((b) => `"${b}"`).join(", ");
+  const basePrompt = `You plan an ebook outline in ${langLabel}.
 Global rules:
-- Ban filler phrases: ${banned}.
+- Ban these exact phrases (case-insensitive): ${bannedStr}.
 - Avoid repeating the raw topic.
 Topic: "${topic}".
 Audience: ${audience}.
 Tone: ${toneLabel}.
 Style: ${style} (${recipe}).
 Generate a specific title and table of contents with ${chapters} chapters.
-Avoid generic names like "Introduction", "Conclusion", "Overview", "พื้นฐาน", "แนวโน้ม", or "สรุป".
+Avoid generic or placeholder titles like "พื้นฐาน", "แนวโน้ม", "กรณีศึกษา", "สรุป", or "หัวข้อที่...".
+${style === "howto" ? "Each chapter title must start with an action verb and include a number or timer." : ""}
 Return JSON: {"title": string, "toc": string[]}.`;
 
-  if (process.env.OPENAI_API_KEY) {
-    const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  async function run(p: string) {
+    const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
     const res = await client.chat.completions.create({
       model: "gpt-4o-mini",
       temperature: 0.4,
-      messages: [{ role: "user", content: prompt }],
+      messages: [{ role: "user", content: p }],
     });
-    const text = res.choices[0].message?.content?.trim() ?? "";
+    return res.choices[0].message?.content?.trim() ?? "";
+  }
+
+  function parse(text: string) {
     try {
       const json = JSON.parse(text);
       const toc: string[] = Array.isArray(json.toc)
@@ -95,10 +116,23 @@ Return JSON: {"title": string, "toc": string[]}.`;
       return { title, toc };
     }
   }
+
+  if (process.env.OPENAI_API_KEY) {
+    let text = await run(basePrompt);
+    let { title, toc } = parse(text);
+    if (hasBanned(title) || toc.some(hasBanned)) {
+      const strictPrompt = `${basePrompt}\nห้ามใช้คำโครงสร้าง เช่น 'หัวข้อที่ 1/2', 'หัวข้อย่อย 1', 'ขั้นตอนหนึ่ง/สอง'. เขียนหัวข้อและขั้นตอนจริงตามคำอธิบายเดิม`;
+      text = await run(strictPrompt);
+      ({ title, toc } = parse(text));
+    }
+    return { title, toc };
+  }
   const isThai = language === "th";
-  const title = isThai ? `${topic}` : `${topic}`;
+  const title = topic;
   const toc = Array.from({ length: chapters }, (_, idx) =>
-    isThai ? `หัวข้อที่ ${idx + 1}` : `Chapter ${idx + 1}`
+    isThai
+      ? `ลงมือทำภารกิจ ${idx + 1} ภายใน 10 นาที`
+      : `Complete task ${idx + 1} in 10 minutes`
   );
   return { title, toc };
 }
@@ -117,53 +151,57 @@ export async function generateChapter({
   const langLabel = language === "th" ? "Thai" : "English";
   const toneLabel = getToneLabel(language, tone);
   const recipe = recipeMap[style];
-  const banned =
-    language === "th"
-      ? "ประเด็นสำคัญ, ขั้นตอนแรกที่ควรทำ, สรุปใจความของ, ในบทนี้เราจะ"
-      : "key points, first step to take, summary of, in this chapter we will";
-  const prompt = `Write chapter ${i} titled "${chapterTitle}" for an ebook on "${topic}".
-Language: ${langLabel}. Audience: ${audience}. Tone: ${toneLabel}. Style: ${style}.
+  const bannedStr = BAN_LIST.join(", ");
+  const basePrompt = `Write chapter ${i} titled "${chapterTitle}" for an ebook on "${topic}".
+Language: ${langLabel}. Audience: ${audience}. Tone: ${toneLabel}. Style: ${style} (${recipe}).
 Global rules:
-- Ban these phrases: ${banned}.
+- Ban these exact phrases (case-insensitive): ${bannedStr}.
 - Do not repeat the raw topic.
 Target length: about ${wordsPerChapter} words (±15%).
-Use this recipe: ${recipe}.
 Structure:
-1) 2–3 sentence introduction.
-2) 3–5 actionable subsections following the style recipe with concrete numbers, timers, steps or percentages.
-${includeExamples ? "3) Include one example or case study.\n4) 3–5 line summary with a practical checklist." : "3) 3–5 line summary with a practical checklist."}
-${includeExamples ? "5) Practical checklist in Markdown." : "4) Practical checklist in Markdown."}
+1) 2–3 sentence introduction with no fluff.
+2) 3–5 actionable subsections with concrete numbers, timers, steps or frequencies.
+${includeExamples ? "3) One realistic example matching the domain.\n4) 3–5 line summary.\n5) Practical checklist in Markdown." : "3) 3–5 line summary.\n4) Practical checklist in Markdown."}
 Write the chapter in Markdown.`;
 
-  if (process.env.OPENAI_API_KEY) {
-    const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  async function run(p: string) {
+    const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
     const res = await client.chat.completions.create({
       model: "gpt-4o-mini",
       temperature: 0.4,
-      messages: [{ role: "user", content: prompt }],
+      messages: [{ role: "user", content: p }],
     });
     return res.choices[0].message?.content?.trim() ?? "";
   }
 
+  if (process.env.OPENAI_API_KEY) {
+    let text = await run(basePrompt);
+    if (hasBanned(text)) {
+      const strictPrompt = `${basePrompt}\nห้ามใช้คำโครงสร้าง เช่น 'หัวข้อที่ 1/2', 'หัวข้อย่อย 1', 'ขั้นตอนหนึ่ง/สอง'. เขียนหัวข้อและขั้นตอนจริงตามคำอธิบายเดิม`;
+      text = await run(strictPrompt);
+    }
+    return text;
+  }
+
   const isThai = language === "th";
   const intro = isThai
-    ? `${chapterTitle} บทนำสั้นๆ 2–3 ประโยค.`
-    : `${chapterTitle} short introduction in 2–3 sentences.`;
+    ? `${chapterTitle} บทนำ 2–3 ประโยคแบบกระชับ`
+    : `${chapterTitle} concise 2–3 sentence introduction`;
   const subsections = Array.from({ length: 3 }, (_, idx) =>
     isThai
-      ? `### หัวข้อย่อย ${idx + 1}\n1. ขั้นตอนหนึ่ง\n2. ขั้นตอนสอง`
-      : `### Subsection ${idx + 1}\n1. Step one\n2. Step two`
+      ? `### ขั้นที่ ${idx + 1}\n- ทำงานให้เสร็จใน 15 นาที`
+      : `### Step ${idx + 1}\n- Finish in 15 minutes`
   );
   const example = includeExamples
     ? isThai
-      ? `\n### กรณีศึกษา\nตัวอย่างประกอบ`
-      : `\n### Example\nA short illustrative case`
+      ? `\n### ตัวอย่างจริง\nอธิบายสถานการณ์ที่เกิดขึ้น`
+      : `\n### Example\nDescribe a realistic scenario`
     : "";
   const summary = isThai
-    ? `\n\nสรุป:\n- ข้อคิดหนึ่ง\n- ข้อคิดสอง`
-    : `\n\nSummary:\n- Takeaway one\n- Takeaway two`;
+    ? `\n\nสรุป:\n- ประเด็นนำไปใช้ได้ทันที\n- เน้นตัวเลขหรือเวลา`
+    : `\n\nSummary:\n- Immediate takeaway\n- Include numbers or time`;
   const checklist = isThai
-    ? `\n\nChecklist:\n- [ ] ทำข้อหนึ่ง\n- [ ] ทำข้อสอง`
-    : `\n\nChecklist:\n- [ ] Do item one\n- [ ] Do item two`;
+    ? `\n\nChecklist:\n- [ ] ลงมือทำภายใน 10 นาที\n- [ ] ตรวจสอบผลทุกสัปดาห์`
+    : `\n\nChecklist:\n- [ ] Act within 10 minutes\n- [ ] Review weekly`;
   return `${intro}\n\n${subsections.join("\n\n")}${example}${summary}${checklist}`;
 }

@@ -1,17 +1,31 @@
 import { NextResponse } from "next/server";
-import { generateChapter, generateTitleAndToc } from "../../../lib/prompt";
+import {
+  Style,
+  generateChapter,
+  generateTitleAndToc,
+} from "../../../lib/prompt";
 
 export async function POST(req: Request) {
+  const body = await req.json();
   const {
     topic,
     language,
     audience,
     tone,
-    style,
+    style = "howto",
     chapters,
     wordsPerChapter,
     includeExamples,
-  } = await req.json();
+  } = body as {
+    topic: string;
+    language: "th" | "en";
+    audience: string;
+    tone: "friendly" | "professional";
+    style?: Style;
+    chapters: number;
+    wordsPerChapter: number;
+    includeExamples: boolean;
+  };
 
   const isThai = language === "th";
   const tocHeader = isThai ? "สารบัญ" : "Table of Contents";
