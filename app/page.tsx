@@ -72,10 +72,13 @@ export default function Home() {
   };
 
   return (
-    <main className="container mx-auto p-4 space-y-8">
+    <main className="container mx-auto max-w-5xl p-4 space-y-8">
       <h1 className="text-2xl font-bold">eBook Generator</h1>
       <div className="grid gap-8 lg:grid-cols-2">
-        <form onSubmit={handleGenerate} className="space-y-4">
+        <form
+          onSubmit={handleGenerate}
+          className="space-y-4 rounded border p-4 shadow-sm bg-white"
+        >
           <div>
             <label htmlFor="topic" className="block text-sm font-medium mb-1">
               Topic
@@ -183,15 +186,16 @@ export default function Home() {
             />
             Include examples
           </label>
-          <button type="submit" className="btn" disabled={loading}>
-            Generate
+          <button type="submit" className="btn w-full" disabled={loading}>
+            {loading ? "Generating..." : "Generate"}
           </button>
         </form>
         <div>
           {loading && <p>Generating...</p>}
 
           {markdown && !loading && (
-            <div className="space-y-4">
+            <section className="space-y-4">
+              <h2 className="text-lg font-semibold text-gray-700">Preview</h2>
               <div className="flex flex-wrap gap-2">
                 <button onClick={downloadMd} className="btn-secondary">
                   Download .md
@@ -203,7 +207,7 @@ export default function Home() {
               <article className="prose max-w-none lg:prose-lg">
                 <ReactMarkdown>{markdown}</ReactMarkdown>
               </article>
-            </div>
+            </section>
           )}
         </div>
       </div>
