@@ -28,22 +28,21 @@ export async function POST(req: Request) {
     toc[idx] || `${chapterLabel} ${idx + 1}`
   );
 
-  const chaptersContent = await Promise.all(
-    tocArray.map((chapterTitle, idx) =>
-      generateChapter({
-        topic,
-        chapterTitle,
-        language,
-        audience,
-        tone,
-        i: idx + 1,
-        wordsPerChapter,
-        includeExamples,
-      }).then(
-        (chapter) => `# ${chapterLabel} ${idx + 1}: ${chapterTitle}\n\n${chapter}`
-      )
-    )
-  );
+  const chaptersContent: string[] = [];
+  for (let idx = 0; idx < tocArray.length; idx++) {
+    const chapterTitle = tocArray[idx];
+    const chapter = await generateChapter({
+      topic,
+      chapterTitle,
+      language,
+      audience,
+      tone,
+      i: idx + 1,
+      wordsPerChapter,
+      includeExamples,
+    });
+    chaptersContent.push(`# ${chapterLabel} ${idx + 1}: ${chapterTitle}\n\n${chapter}`);
+  }
 
   const tocList = tocArray.map((t, idx) => `- ${chapterLabel} ${idx + 1}: ${t}`);
   const markdown = `# ${title}\n\n## ${tocHeader}\n${tocList.join("\n")}\n\n${chaptersContent.join("\n\n")}`;
